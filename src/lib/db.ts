@@ -18,6 +18,16 @@ interface MongooseCache {
     promise: Promise<mongoose.Connection> | null;
 }
 
+export class DatabaseConnectionError extends Error {
+    code: 'DB_AUTH_FAILED' | 'DB_CONNECTION_FAILED';
+
+    constructor(code: 'DB_AUTH_FAILED' | 'DB_CONNECTION_FAILED', message: string) {
+        super(message);
+        this.name = 'DatabaseConnectionError';
+        this.code = code;
+    }
+}
+
 declare global {
     var mongoose: MongooseCache;
 }
@@ -45,9 +55,21 @@ async function dbConnect() {
 
     try {
         cached.conn = await cached.promise;
-    } catch (e) {
+    } catch (e: unknown) {
         cached.promise = null;
-        throw e;
+
+        const mongoError = e as { code?: number; codeName?: string; message?: string };
+        if (mongoError?.code === 8000) {
+            throw new DatabaseConnectionError(
+                'DB_AUTH_FAILED',
+                'MongoDB authentication failed. Verify Atlas database user credentials in MONGODB_URI.'
+            );
+        }
+
+        throw new DatabaseConnectionError(
+            'DB_CONNECTION_FAILED',
+            mongoError?.message || 'Failed to connect to MongoDB.'
+        );
     }
 
     return cached.conn;

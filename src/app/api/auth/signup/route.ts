@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
+import dbConnect, { DatabaseConnectionError } from '@/lib/db';
 import User from '@/models/User';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -50,8 +50,23 @@ export async function POST(request: Request) {
                 name: user.name,
             },
         });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Signup error:', error);
+
+        if (error instanceof DatabaseConnectionError) {
+            if (error.code === 'DB_AUTH_FAILED') {
+                return NextResponse.json(
+                    { error: 'Database authentication failed. Please verify MongoDB credentials.' },
+                    { status: 503 }
+                );
+            }
+
+            return NextResponse.json(
+                { error: 'Database connection failed. Please try again shortly.' },
+                { status: 503 }
+            );
+        }
+
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

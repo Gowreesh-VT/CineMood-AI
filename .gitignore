@@ -23,7 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 
-.env
-.env.local
 .next
 config.bat
